@@ -522,7 +522,7 @@ with tab_fridge:
     # [좌측] 재료 등록 폼
     with col_input:
         st.subheader("➕ 식재료 넣기")
-        st.caption("새로운 식재료를 가상 냉장고에 추가합니다.")
+                st.caption("새로운 식재료를 가상 냉장고에 추가합니다.")
 
         # 사진 업로드 (AI 미구현 명시 안내)
         with st.expander("📷 식재료 사진 첨부 (선택)", expanded=False):
@@ -536,7 +536,7 @@ with tab_fridge:
                 st.image(photo, caption="첨부된 사진", use_container_width=True)
                 st.info("💡 사진 속 재료의 이름과 수량을 아래 입력창에 직접 작성해 주세요.")
 
-                               with st.form("form_add_ingredient", clear_on_submit=True):
+        with st.form("form_add_ingredient", clear_on_submit=True):
             f_name = st.text_input("식재료 이름 *", placeholder="예: 두부, 양파, 계란, 소고기")
             f_qty = st.text_input("수량 / 메모", placeholder="예: 1모, 반 개, 500g")
             f_loc = st.selectbox("보관 위치 *", ["냉장실", "냉동실", "실온"])
@@ -547,8 +547,7 @@ with tab_fridge:
                 use_container_width=True,
                 type="primary"
             )
-
-        if add_submit:
+               if add_submit:
             if not f_name or not f_name.strip():
                 st.error("식재료 이름을 입력해 주세요!")
             else:

@@ -296,8 +296,7 @@ def match_recipe(recipe_ingredients, selected_names):
 
 
 # ---------- 귀엽고 따뜻한 게임풍 UI 스타일링 (CSS) ----------
-st.markdown(
-    """
+st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&family=Gaegu:wght@700&display=swap');
 
@@ -305,6 +304,7 @@ st.markdown(
         font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
     }
 
+    /* 게임 스타일 상단 히어로 배너 */
     .game-banner {
         background: linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%);
         border-radius: 20px;
@@ -343,6 +343,7 @@ st.markdown(
         box-shadow: 0 4px 6px rgba(0,0,0,0.03);
     }
 
+    /* 가상 냉장고 외관 */
     .fridge-container {
         background: #F0F4F8;
         border: 4px solid #CBD5E1;
@@ -372,6 +373,7 @@ st.markdown(
         min-height: 110px;
     }
 
+    /* 재료 아이템 카드 */
     .item-card {
         background: #FFFFFF;
         border: 2px solid #E2E8F0;
@@ -394,4 +396,68 @@ st.markdown(
     .item-name {
         font-weight: 700;
         font-size: 1rem;
-        color: #1E2
+        color: #1E293B;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .item-qty {
+        font-size: 0.8rem;
+        color: #64748B;
+        min-height: 1.1rem;
+    }
+
+    /* 유통기한 뱃지 */
+    .badge-urgent, .badge-expired {
+        background: #FEE2E2;
+        color: #DC2626;
+        border-radius: 8px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-block;
+        margin-top: 4px;
+    }
+    .badge-warning {
+        background: #FFEDD5;
+        color: #EA580C;
+        border-radius: 8px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-block;
+        margin-top: 4px;
+    }
+    .badge-safe {
+        background: #DCFCE7;
+        color: #16A34A;
+        border-radius: 8px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-top: 4px;
+    }
+    .badge-neutral {
+        background: #F1F5F9;
+        color: #64748B;
+        border-radius: 8px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        display: inline-block;
+        margin-top: 4px;
+    }
+
+    /* 알림 배너 */
+    .urgent-banner {
+        background: #FFF1F2;
+        border-left: 5px solid #F43F5E;
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 1rem;
+        color: #9F1239;
+        font-size: 0.95rem;
+    }
+</style>
+""", unsafe_allow_html=True)

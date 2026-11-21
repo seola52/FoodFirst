@@ -78,8 +78,7 @@ def show_auth():
                         "회원가입 요청이 완료되었습니다. 이메일 인증이 필요할 수 있습니다."
                     )
                 except Exception as e:
-    st.error(f"회원가입 오류: {e}")
-
+                    st.error(f"회원가입 오류: {e}")
 
 # ---------- 로그인 여부 확인 ----------
 if st.session_state["user"] is None:

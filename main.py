@@ -56,8 +56,8 @@ def show_auth():
                 st.session_state["user"] = result.user
                 st.session_state["user_email"] = result.user.email
                 st.rerun()
-            except Exception:
-                st.error("로그인에 실패했습니다. 이메일과 비밀번호를 확인해 주세요.")
+            except Exception as e:
+                st.error(f"로그인 오류: {e}")
 
     with tab2:
         new_email = st.text_input("이메일", key="signup_email")

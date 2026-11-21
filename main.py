@@ -1,19 +1,14 @@
 import os
 import re
 import json
-import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
 import requests
 import streamlit as st
+from supabase import create_client
 
-# ---------- 환경 및 경로 설정 ----------
-APP_DIR = Path(__file__).resolve().parent
-DB_PATH = APP_DIR / "foodfirst.db"
-API_URL = "https://openapi.foodsafetykorea.go.kr/api"
-
-# 기본 페이지 설정
+# ---------- 기본 페이지 설정 ----------
 st.set_page_config(
     page_title="FoodFirst - 맛있는 식재료 구출 대작전",
     page_icon="🧊",
@@ -21,47 +16,83 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ---------- SQLite 로컬 데이터베이스 ----------
-def get_conn():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+# ---------- 환경 및 경로 설정 ----------
+APP_DIR = Path(__file__).resolve().parent
+API_URL = "https://openapi.foodsafetykorea.go.kr/api"
+# ---------- Supabase 연결 ----------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
-def init_db():
-    with get_conn() as conn:
-        conn.execute("""
-        CREATE TABLE IF NOT EXISTS ingredients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            quantity TEXT DEFAULT '',
-            location TEXT DEFAULT '냉장실',
-            expiry_date TEXT,
-            image_name TEXT DEFAULT '',
-            created_at TEXT NOT NULL
-        )""")
-        conn.execute("""
-        CREATE TABLE IF NOT EXISTS user_recipes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            ingredients TEXT NOT NULL,
-            steps TEXT NOT NULL,
-            cook_minutes INTEGER DEFAULT 20,
-            creator TEXT DEFAULT '나',
-            created_at TEXT NOT NULL,
-            uses INTEGER DEFAULT 0,
-            rating_sum INTEGER DEFAULT 0,
-            rating_count INTEGER DEFAULT 0,
-            points_awarded INTEGER DEFAULT 0
-        )""")
-        conn.execute("""
-        CREATE TABLE IF NOT EXISTS recipe_actions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            recipe_id INTEGER NOT NULL,
-            action_type TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        )""")
+if "supabase" not in st.session_state:
+    st.session_state["supabase"] = create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    )
 
-init_db()
+supabase = st.session_state["supabase"]
+
+# ---------- 로그인 상태 관리 ----------
+if "user" not in st.session_state:
+    st.session_state["user"] = None
+
+if "user_email" not in st.session_state:
+    st.session_state["user_email"] = ""
+
+# ---------- 회원가입 및 로그인 ----------
+def show_auth():
+    st.title("🧊 FoodFirst")
+    st.subheader("나만의 냉장고를 관리해 보세요!")
+
+    tab1, tab2 = st.tabs(["로그인", "회원가입"])
+
+    with tab1:
+        email = st.text_input("이메일", key="login_email")
+        password = st.text_input("비밀번호", type="password", key="login_password")
+
+        if st.button("로그인", use_container_width=True):
+            try:
+                result = supabase.auth.sign_in_with_password({
+                    "email": email,
+                    "password": password
+                })
+                st.session_state["user"] = result.user
+                st.session_state["user_email"] = result.user.email
+                st.rerun()
+            except Exception:
+                st.error("로그인에 실패했습니다. 이메일과 비밀번호를 확인해 주세요.")
+
+    with tab2:
+        new_email = st.text_input("이메일", key="signup_email")
+        new_password = st.text_input(
+            "비밀번호 (6자 이상)", type="password", key="signup_password"
+        )
+
+        if st.button("회원가입", use_container_width=True):
+            if len(new_password) < 6:
+                st.error("비밀번호는 6자 이상 입력해 주세요.")
+            else:
+                try:
+                    supabase.auth.sign_up({
+                        "email": new_email,
+                        "password": new_password
+                    })
+                    st.success("회원가입 요청이 완료되었습니다. 이메일 인증이 필요할 수 있습니다.")
+                except Exception:
+                    st.error("회원가입에 실패했습니다. 입력 정보를 확인해 주세요.")
+# ---------- 로그인 여부 확인 ----------
+if st.session_state["user"] is None:
+    show_auth()
+    st.stop()
+
+# ---------- 로그인 사용자 정보 ----------
+st.sidebar.success(f"로그인: {st.session_state['user_email']}")
+
+if st.sidebar.button("로그아웃"):
+    supabase.auth.sign_out()
+    st.session_state["user"] = None
+    st.session_state["user_email"] = ""
+    st.rerun()
+
 
 # ---------- 헬퍼 함수 ----------
 def parse_date(value):
@@ -99,17 +130,41 @@ def split_ingredients(text):
     return cleaned
 
 def get_ingredients():
-    with get_conn() as conn:
-        return conn.execute("SELECT * FROM ingredients ORDER BY id DESC").fetchall()
+    user_id = str(st.session_state["user"].id)
+
+    result = (
+        supabase.table("ingredients")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("id", desc=True)
+        .execute()
+    )
+
+    return result.data
+
 
 def get_user_recipes():
-    with get_conn() as conn:
-        return conn.execute("SELECT * FROM user_recipes ORDER BY id DESC").fetchall()
+    result = (
+        supabase.table("user_recipes")
+        .select("*")
+        .order("id", desc=True)
+        .execute()
+    )
+
+    return result.data
+
 
 def get_total_creator_points():
-    with get_conn() as conn:
-        row = conn.execute("SELECT SUM(points_awarded) as total FROM user_recipes").fetchone()
-        return row["total"] if row and row["total"] else 0
+    result = (
+        supabase.table("user_recipes")
+        .select("points_awarded")
+        .execute()
+    )
+
+    return sum(
+        int(row.get("points_awarded") or 0)
+        for row in result.data
+    )
 
 # 70종 이상의 친근한 식재료 이모지 매핑 딕셔너리
 EMOJI_MAP = {
@@ -489,20 +544,29 @@ with tab_fridge:
 
             add_submit = st.form_submit_button("냉장고에 쏙 넣기 📥", use_container_width=True, type="primary")
 
-            if add_submit:
-                if not f_name or not f_name.strip():
-                    st.error("식재료 이름을 입력해 주세요!")
-                else:
-                    exp_str = f_exp.isoformat() if f_exp else ""
-                    photo_name = photo.name if photo else ""
-                    with get_conn() as conn:
-                        conn.execute(
-                            """INSERT INTO ingredients(name, quantity, location, expiry_date, image_name, created_at)
-                               VALUES(?, ?, ?, ?, ?, ?)""",
-                            (f_name.strip(), f_qty.strip(), f_loc, exp_str, photo_name, datetime.now().isoformat(timespec="seconds"))
-                        )
-                    st.toast(f"'{f_name.strip()}' 재료를 {f_loc}에 넣었습니다! ✨")
-                    st.rerun()
+           if add_submit:
+    if not f_name or not f_name.strip():
+        st.error("식재료 이름을 입력해 주세요!")
+    else:
+        exp_str = f_exp.isoformat() if f_exp else ""
+        photo_name = photo.name if photo else ""
+
+        try:
+            supabase.table("ingredients").insert({
+                "user_id": str(st.session_state["user"].id),
+                "name": f_name.strip(),
+                "quantity": f_qty.strip(),
+                "location": f_loc,
+                "expiry_date": exp_str,
+                "image_name": photo_name,
+                "created_at": datetime.now().isoformat(timespec="seconds")
+            }).execute()
+
+            st.toast(f"'{f_name.strip()}' 재료를 {f_loc}에 넣었습니다! ✨")
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"식재료 저장에 실패했습니다: {e}")
 
         # [재료 수정/삭제 섹션] - 선택되었을 때만 표시
         manage_id = st.session_state.get("manage_item_id")
@@ -527,26 +591,45 @@ with tab_fridge:
                     btn_del = col_del.form_submit_button("삭제", use_container_width=True)
                     btn_cancel = col_cancel.form_submit_button("닫기", use_container_width=True)
 
-                    if btn_save:
-                        if not e_name.strip():
-                            st.error("재료 이름을 입력해 주세요.")
-                        else:
-                            exp_val = e_exp.isoformat() if e_exp else ""
-                            with get_conn() as conn:
-                                conn.execute(
-                                    "UPDATE ingredients SET name=?, quantity=?, location=?, expiry_date=? WHERE id=?",
-                                    (e_name.strip(), e_qty.strip(), e_loc, exp_val, manage_id)
-                                )
+                  if btn_save:
+    if not e_name.strip():
+        st.error("재료 이름을 입력해 주세요.")
+    else:
+        exp_val = e_exp.isoformat() if e_exp else ""
+
+        try:
+            supabase.table("ingredients").update({
+                "name": e_name.strip(),
+                "quantity": e_qty.strip(),
+                "location": e_loc,
+                "expiry_date": exp_val
+            }).eq(
+                "id", manage_id
+            ).eq(
+                "user_id", str(st.session_state["user"].id)
+            ).execute()
+
+            st.session_state.pop("manage_item_id", None)
+            st.toast("재료 정보가 수정되었습니다.")
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"재료 수정에 실패했습니다: {e}")
+
+                                       if btn_del:
+                        try:
+                            supabase.table("ingredients").delete().eq(
+                                "id", manage_id
+                            ).eq(
+                                "user_id", str(st.session_state["user"].id)
+                            ).execute()
+
                             st.session_state.pop("manage_item_id", None)
-                            st.toast("재료 정보가 수정되었습니다.")
+                            st.toast("재료가 삭제되었습니다.")
                             st.rerun()
 
-                    if btn_del:
-                        with get_conn() as conn:
-                            conn.execute("DELETE FROM ingredients WHERE id=?", (manage_id,))
-                        st.session_state.pop("manage_item_id", None)
-                        st.toast("재료가 삭제되었습니다.")
-                        st.rerun()
+                        except Exception as e:
+                            st.error(f"재료 삭제에 실패했습니다: {e}")
 
                     if btn_cancel:
                         st.session_state.pop("manage_item_id", None)
@@ -803,15 +886,18 @@ with tab_recipes:
                     if r.get("user_created"):
                         c_stat, c_action = st.columns([2, 1])
                         c_stat.caption(f"🍳 다른 사용자가 만들어 본 횟수: **{r.get('uses', 0)}회** | 적립된 창작 포인트: **{r.get('points_awarded', 0)} P**")
-                        if c_action.button("이 레시피를 만들어 봤어요 (+5P) 💖", key=f"btn_used_{r['user_id']}", use_container_width=True):
-                            with get_conn() as conn:
-                                conn.execute("UPDATE user_recipes SET uses=uses+1, points_awarded=points_awarded+5 WHERE id=?", (r["user_id"],))
-                                conn.execute(
-                                    "INSERT INTO recipe_actions(recipe_id, action_type, created_at) VALUES(?, ?, ?)",
-                                    (r["user_id"], "cooked", datetime.now().isoformat(timespec="seconds"))
-                                )
-                            st.toast("요리 활용 완료! 창작자에게 5 포인트가 지급되었습니다! 🎉")
-                            st.rerun()
+                       if c_action.button("이 레시피를 만들어 봤어요 (+5P) 💖", key=f"btn_used_{r['user_id']}", use_container_width=True):
+    try:
+        supabase.rpc(
+            "record_recipe_action",
+            {"p_recipe_id": int(r["user_id"])}
+        ).execute()
+
+        st.toast("요리 활용 완료! 창작자에게 5 포인트가 지급되었습니다! 🎉")
+        st.rerun()
+
+    except Exception as e:
+        st.error(f"요리 활용 기록에 실패했습니다: {e}")
 
 # ==============================================================================
 # TAB 3: 레시피 창작소 (사용자 창작 레시피 등록 & 보상)
@@ -856,15 +942,23 @@ with tab_creator:
                 elif not cr_consent:
                     st.error("저작권 및 공유 권한 동의 확인란에 체크해 주세요.")
                 else:
-                    with get_conn() as conn:
-                        conn.execute(
-                            """INSERT INTO user_recipes(title, ingredients, steps, cook_minutes, creator, created_at, points_awarded)
-                               VALUES(?, ?, ?, ?, ?, ?, ?)""",
-                            (cr_title.strip(), cr_ingredients.strip(), cr_steps.strip(), int(cr_minutes),
-                             cr_author.strip() or "익명", datetime.now().isoformat(timespec="seconds"), 10) # 최초 등록 축하 10P
-                        )
-                    st.toast(f"'{cr_title.strip()}' 레시피가 등록되었습니다! 최초 등록 보너스 10P 지급! 🎉")
-                    st.rerun()
+                                        try:
+                        supabase.table("user_recipes").insert({
+                            "user_id": str(st.session_state["user"].id),
+                            "title": cr_title.strip(),
+                            "ingredients": cr_ingredients.strip(),
+                            "steps": cr_steps.strip(),
+                            "cook_minutes": int(cr_minutes),
+                            "creator": cr_author.strip() or "익명",
+                            "created_at": datetime.now().isoformat(timespec="seconds"),
+                            "points_awarded": 10
+                        }).execute()
+
+                        st.toast(f"'{cr_title.strip()}' 레시피가 등록되었습니다! 최초 등록 보너스 10P 지급! 🎉")
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"레시피 등록에 실패했습니다: {e}")
 
     with col_my_list:
         st.markdown("#### 🏆 내가 등록한 레시피 & 보상 현황")
@@ -877,12 +971,25 @@ with tab_creator:
                 with st.container(border=True):
                     c_title, c_del = st.columns([3, 1])
                     c_title.markdown(f"**{ur['title']}**")
-                    if c_del.button("삭제", key=f"btn_del_ur_{ur['id']}", use_container_width=True):
-                        with get_conn() as conn:
-                            conn.execute("DELETE FROM user_recipes WHERE id=?", (ur["id"],))
-                            conn.execute("DELETE FROM recipe_actions WHERE recipe_id=?", (ur["id"],))
-                        st.toast("레시피가 삭제되었습니다.")
-                        st.rerun()
+                                       if c_del.button("삭제", key=f"btn_del_ur_{ur['id']}", use_container_width=True):
+                        try:
+                            supabase.table("user_recipes").delete().eq(
+                                "id", ur["id"]
+                            ).eq(
+                                "user_id", str(st.session_state["user"].id)
+                            ).execute()
+
+                            supabase.table("recipe_actions").delete().eq(
+                                "recipe_id", ur["id"]
+                            ).eq(
+                                "user_id", str(st.session_state["user"].id)
+                            ).execute()
+
+                            st.toast("레시피가 삭제되었습니다.")
+                            st.rerun()
+
+                        except Exception as e:
+                            st.error(f"레시피 삭제에 실패했습니다: {e}")
 
                     st.caption(f"👤 창작자: {ur['creator']} | ⏱️ {ur['cook_minutes']}분 | 📅 등록일: {ur['created_at'][:10]}")
                     
@@ -934,13 +1041,28 @@ with tab_settings:
         st.caption("주의: 로컬 SQLite 데이터베이스의 모든 재료 및 사용자 레시피가 영구 삭제됩니다.")
 
         confirm_reset = st.checkbox("데이터 초기화에 동의하며, 복구할 수 없음을 이해했습니다.", key="chk_db_reset")
-        if st.button("모든 로컬 데이터 초기화", type="secondary", disabled=not confirm_reset):
-            with get_conn() as conn:
-                conn.execute("DELETE FROM ingredients")
-                conn.execute("DELETE FROM user_recipes")
-                conn.execute("DELETE FROM recipe_actions")
-            st.session_state.pop("public_recipes", None)
-            st.session_state.pop("selected_ingredients_cache", None)
-            st.session_state.pop("manage_item_id", None)
-            st.success("모든 로컬 데이터가 안전하게 초기화되었습니다.")
-            st.rerun()
+       if st.button("모든 로컬 데이터 초기화", type="secondary", disabled=not confirm_reset):
+    try:
+        user_id = str(st.session_state["user"].id)
+
+        supabase.table("ingredients").delete().eq(
+            "user_id", user_id
+        ).execute()
+
+        supabase.table("user_recipes").delete().eq(
+            "user_id", user_id
+        ).execute()
+
+        supabase.table("recipe_actions").delete().eq(
+            "user_id", user_id
+        ).execute()
+
+        st.session_state.pop("public_recipes", None)
+        st.session_state.pop("selected_ingredients_cache", None)
+        st.session_state.pop("manage_item_id", None)
+
+        st.success("내 데이터가 초기화되었습니다.")
+        st.rerun()
+
+    except Exception as e:
+        st.error(f"데이터 초기화에 실패했습니다: {e}")

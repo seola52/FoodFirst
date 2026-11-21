@@ -536,17 +536,8 @@ with tab_fridge:
                 st.image(photo, caption="첨부된 사진", use_container_width=True)
                 st.info("💡 사진 속 재료의 이름과 수량을 아래 입력창에 직접 작성해 주세요.")
 
-                        with st.form("form_add_ingredient", clear_on_submit=True):
+                               with st.form("form_add_ingredient", clear_on_submit=True):
             f_name = st.text_input("식재료 이름 *", placeholder="예: 두부, 양파, 계란, 소고기")
-            f_qty = st.text_input("수량 / 메모", placeholder="예: 1모, 반 개, 500g")
-            f_loc = st.selectbox("보관 위치 *", ["냉장실", "냉동실", "실온"])
-            f_exp = st.date_input("유통/소비기한 (선택)", value=None, format="YYYY-MM-DD")
-
-            add_submit = st.form_submit_button(
-                "냉장고에 쏙 넣기 📥",
-                use_container_width=True,
-                type="primary"
-            )
             f_qty = st.text_input("수량 / 메모", placeholder="예: 1모, 반 개, 500g")
             f_loc = st.selectbox("보관 위치 *", ["냉장실", "냉동실", "실온"])
             f_exp = st.date_input("유통/소비기한 (선택)", value=None, format="YYYY-MM-DD")

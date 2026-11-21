@@ -517,12 +517,12 @@ with tab_fridge:
             unsafe_allow_html=True
         )
 
-    col_input, col_fridge = st.columns([1.1, 1.9], gap="large")
+       col_input, col_fridge = st.columns([1.1, 1.9], gap="large")
 
     # [좌측] 재료 등록 폼
     with col_input:
         st.subheader("➕ 식재료 넣기")
-                st.caption("새로운 식재료를 가상 냉장고에 추가합니다.")
+        st.caption("새로운 식재료를 가상 냉장고에 추가합니다.")
 
         # 사진 업로드 (AI 미구현 명시 안내)
         with st.expander("📷 식재료 사진 첨부 (선택)", expanded=False):
@@ -547,7 +547,8 @@ with tab_fridge:
                 use_container_width=True,
                 type="primary"
             )
-               if add_submit:
+
+        if add_submit:
             if not f_name or not f_name.strip():
                 st.error("식재료 이름을 입력해 주세요!")
             else:
@@ -594,7 +595,7 @@ with tab_fridge:
                     btn_del = col_del.form_submit_button("삭제", use_container_width=True)
                     btn_cancel = col_cancel.form_submit_button("닫기", use_container_width=True)
 
-                                      if btn_save:
+                                                      if btn_save:
                         if not e_name.strip():
                             st.error("재료 이름을 입력해 주세요.")
                         else:

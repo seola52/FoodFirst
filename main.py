@@ -536,37 +536,41 @@ with tab_fridge:
                 st.image(photo, caption="첨부된 사진", use_container_width=True)
                 st.info("💡 사진 속 재료의 이름과 수량을 아래 입력창에 직접 작성해 주세요.")
 
-        with st.form("form_add_ingredient", clear_on_submit=True):
+                with st.form("form_add_ingredient", clear_on_submit=True):
             f_name = st.text_input("식재료 이름 *", placeholder="예: 두부, 양파, 계란, 소고기")
             f_qty = st.text_input("수량 / 메모", placeholder="예: 1모, 반 개, 500g")
             f_loc = st.selectbox("보관 위치 *", ["냉장실", "냉동실", "실온"])
             f_exp = st.date_input("유통/소비기한 (선택)", value=None, format="YYYY-MM-DD")
 
-            add_submit = st.form_submit_button("냉장고에 쏙 넣기 📥", use_container_width=True, type="primary")
+            add_submit = st.form_submit_button(
+                "냉장고에 쏙 넣기 📥",
+                use_container_width=True,
+                type="primary"
+            )
 
-           if add_submit:
-    if not f_name or not f_name.strip():
-        st.error("식재료 이름을 입력해 주세요!")
-    else:
-        exp_str = f_exp.isoformat() if f_exp else ""
-        photo_name = photo.name if photo else ""
+        if add_submit:
+            if not f_name or not f_name.strip():
+                st.error("식재료 이름을 입력해 주세요!")
+            else:
+                exp_str = f_exp.isoformat() if f_exp else ""
+                photo_name = photo.name if photo else ""
 
-        try:
-            supabase.table("ingredients").insert({
-                "user_id": str(st.session_state["user"].id),
-                "name": f_name.strip(),
-                "quantity": f_qty.strip(),
-                "location": f_loc,
-                "expiry_date": exp_str,
-                "image_name": photo_name,
-                "created_at": datetime.now().isoformat(timespec="seconds")
-            }).execute()
+                try:
+                    supabase.table("ingredients").insert({
+                        "user_id": str(st.session_state["user"].id),
+                        "name": f_name.strip(),
+                        "quantity": f_qty.strip(),
+                        "location": f_loc,
+                        "expiry_date": exp_str,
+                        "image_name": photo_name,
+                        "created_at": datetime.now().isoformat(timespec="seconds")
+                    }).execute()
 
-            st.toast(f"'{f_name.strip()}' 재료를 {f_loc}에 넣었습니다! ✨")
-            st.rerun()
+                    st.toast(f"'{f_name.strip()}' 재료를 {f_loc}에 넣었습니다! ✨")
+                    st.rerun()
 
-        except Exception as e:
-            st.error(f"식재료 저장에 실패했습니다: {e}")
+                except Exception as e:
+                    st.error(f"식재료 저장에 실패했습니다: {e}")
 
         # [재료 수정/삭제 섹션] - 선택되었을 때만 표시
         manage_id = st.session_state.get("manage_item_id")
@@ -591,32 +595,32 @@ with tab_fridge:
                     btn_del = col_del.form_submit_button("삭제", use_container_width=True)
                     btn_cancel = col_cancel.form_submit_button("닫기", use_container_width=True)
 
-                  if btn_save:
-    if not e_name.strip():
-        st.error("재료 이름을 입력해 주세요.")
-    else:
-        exp_val = e_exp.isoformat() if e_exp else ""
+                                      if btn_save:
+                        if not e_name.strip():
+                            st.error("재료 이름을 입력해 주세요.")
+                        else:
+                            exp_val = e_exp.isoformat() if e_exp else ""
 
-        try:
-            supabase.table("ingredients").update({
-                "name": e_name.strip(),
-                "quantity": e_qty.strip(),
-                "location": e_loc,
-                "expiry_date": exp_val
-            }).eq(
-                "id", manage_id
-            ).eq(
-                "user_id", str(st.session_state["user"].id)
-            ).execute()
+                            try:
+                                supabase.table("ingredients").update({
+                                    "name": e_name.strip(),
+                                    "quantity": e_qty.strip(),
+                                    "location": e_loc,
+                                    "expiry_date": exp_val
+                                }).eq(
+                                    "id", manage_id
+                                ).eq(
+                                    "user_id", str(st.session_state["user"].id)
+                                ).execute()
 
-            st.session_state.pop("manage_item_id", None)
-            st.toast("재료 정보가 수정되었습니다.")
-            st.rerun()
+                                st.session_state.pop("manage_item_id", None)
+                                st.toast("재료 정보가 수정되었습니다.")
+                                st.rerun()
 
-        except Exception as e:
-            st.error(f"재료 수정에 실패했습니다: {e}")
+                            except Exception as e:
+                                st.error(f"재료 수정에 실패했습니다: {e}")
 
-                                       if btn_del:
+                    if btn_del:
                         try:
                             supabase.table("ingredients").delete().eq(
                                 "id", manage_id
@@ -634,7 +638,6 @@ with tab_fridge:
                     if btn_cancel:
                         st.session_state.pop("manage_item_id", None)
                         st.rerun()
-
     # [우측] 시각화된 가상 냉장고 (게임 인벤토리 뷰)
     with col_fridge:
         st.subheader("🧊 내 가상 냉장고 현황")
